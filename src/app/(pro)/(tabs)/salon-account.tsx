@@ -1,7 +1,9 @@
 import * as WebBrowser from 'expo-web-browser';
+import { View } from 'react-native';
 import { config } from '../../../config';
 import { useSession } from '../../../session/SessionProvider';
-import { Body, Button, Card, Screen, SectionTitle, Title } from '../../../ui/components';
+import { Avatar, Card, ListRow, Row, Screen, TAB_BAR_SPACE, Txt } from '../../../ui/components';
+import { radius, space, useTheme } from '../../../ui/theme';
 
 const ROLE_LABELS: Record<string, string> = {
   admin: 'Yönetici',
@@ -12,24 +14,43 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 export default function SalonAccount() {
+  const t = useTheme();
   const { staff, user, switchMode, signOut } = useSession();
   const role = staff?.isOwner ? 'Salon sahibi' : staff?.role ? ROLE_LABELS[staff.role] ?? staff.role : '-';
 
   return (
-    <Screen>
-      <Title>Hesap</Title>
+    <Screen bottomInset={TAB_BAR_SPACE}>
+      <Txt variant="title">Hesap</Txt>
       <Card>
-        <SectionTitle>{staff?.tenantName}</SectionTitle>
-        <Body muted>
-          {user?.email} · {role}
-        </Body>
+        <Row gap={space.lg}>
+          <Avatar name={staff?.tenantName ?? 'O'} size={60} />
+          <View style={{ flex: 1, gap: 4 }}>
+            <Txt variant="h2" numberOfLines={1}>
+              {staff?.tenantName}
+            </Txt>
+            <Txt variant="caption" muted numberOfLines={1}>
+              {user?.email}
+            </Txt>
+            <View style={{ alignSelf: 'flex-start', backgroundColor: t.primarySoft, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 3 }}>
+              <Txt variant="caption" color={t.primary} style={{ fontSize: 12 }}>
+                {role}
+              </Txt>
+            </View>
+          </View>
+        </Row>
       </Card>
-      <Card>
-        <Body muted>Katalog, personel, kasa ve raporların tamamı şimdilik web panelde.</Body>
-        <Button title="Web paneli aç" variant="secondary" onPress={() => WebBrowser.openBrowserAsync(`${config.siteUrl}/dashboard`)} />
+
+      <Card style={{ gap: 0, paddingVertical: space.sm }}>
+        <ListRow
+          icon="desktop-outline"
+          title="Web paneli aç"
+          subtitle="Katalog, personel, kasa ve detaylı raporlar"
+          tone="info"
+          onPress={() => WebBrowser.openBrowserAsync(`${config.siteUrl}/dashboard`)}
+        />
+        <ListRow icon="swap-horizontal" title="Müşteri moduna geç" subtitle="Başka bir salondan randevu al" tone="violet" onPress={() => switchMode('customer')} />
+        <ListRow icon="log-out-outline" title="Çıkış yap" danger onPress={signOut} />
       </Card>
-      <Button title="Müşteri moduna geç" variant="secondary" onPress={() => switchMode('customer')} />
-      <Button title="Çıkış yap" variant="danger" onPress={signOut} />
     </Screen>
   );
 }

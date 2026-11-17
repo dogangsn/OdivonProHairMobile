@@ -1,27 +1,35 @@
 import { useQuery } from '@tanstack/react-query';
-import { RefreshControl, ScrollView, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { RefreshControl, ScrollView, View } from 'react-native';
 import { salonApi } from '../../../api/salon';
 import { AppointmentCard } from '../../../components/AppointmentCard';
 import { formatDate, formatMoney, isoDate } from '../../../lib/dates';
 import { useSession } from '../../../session/SessionProvider';
-import { Empty, ErrorBox, Loading, SectionTitle, Title } from '../../../ui/components';
-import { radius, space, useTheme } from '../../../ui/theme';
+import {
+  Avatar,
+  Empty,
+  ErrorBox,
+  Hero,
+  KpiCard,
+  Loading,
+  PressScale,
+  Row,
+  SectionHeader,
+  TAB_BAR_SPACE,
+  Txt,
+} from '../../../ui/components';
+import { space, useTheme } from '../../../ui/theme';
 
-function Kpi({ label, value }: { label: string; value: string }) {
-  const t = useTheme();
-  return (
-    <View style={{ flexBasis: '47%', flexGrow: 1, backgroundColor: t.surface, borderRadius: radius.lg, padding: space.lg, borderColor: t.border, borderWidth: 1, gap: 4 }}>
-      <Text style={{ color: t.textMuted, fontSize: 13 }}>{label}</Text>
-      <Text style={{ color: t.text, fontSize: 22, fontWeight: '700' }}>{value}</Text>
-    </View>
-  );
+function nowHm(): string {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-/** Salon home: today's numbers (owner / manager) and today's appointments (stylists see their own). */
+/** Salon home: today's numbers (owner / manager) and today's timeline (stylists see their own). */
 export default function Today() {
   const t = useTheme();
-  const { staff } = useSession();
+  const router = useRouter();
+  const { staff, user } = useSession();
   const today = isoDate(new Date());
   const canSeeMoney = staff?.isOwner || staff?.role === 'admin' || staff?.role === 'manager';
 
@@ -32,35 +40,72 @@ export default function Today() {
   });
 
   const list = (appointments.data ?? []).slice().sort((a, b) => a.startTime.localeCompare(b.startTime));
+  const active = list.filter((a) => a.status !== 'cancelled' && a.status !== 'noShow');
+  const now = nowHm();
+  const next = active.find((a) => a.endTime >= now && a.status !== 'completed');
   const refreshing = appointments.isRefetching || dashboard.isRefetching;
 
   return (
-    <SafeAreaView edges={['top', 'left', 'right']} style={{ flex: 1, backgroundColor: t.background }}>
-      <ScrollView
-        contentContainerStyle={{ padding: space.lg, gap: space.lg, paddingBottom: space.xxl }}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => { appointments.refetch(); if (canSeeMoney) dashboard.refetch(); }} />
-        }
-      >
-        <Title subtitle={formatDate(today)}>{staff?.tenantName ?? 'Bugün'}</Title>
-
-        {canSeeMoney && dashboard.data ? (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.md }}>
-            <Kpi label="Günlük ciro" value={formatMoney(dashboard.data.todayRevenue)} />
-            <Kpi label="Randevu" value={String(dashboard.data.todayAppointments)} />
-            <Kpi label="Onay bekleyen" value={String(dashboard.data.pendingAppointments)} />
-            <Kpi label="Toplam müşteri" value={String(dashboard.data.totalCustomers)} />
+    <ScrollView
+      style={{ flex: 1, backgroundColor: t.background }}
+      contentContainerStyle={{ paddingBottom: TAB_BAR_SPACE + space.xl }}
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl
+          tintColor="#FFFFFF"
+          refreshing={refreshing}
+          onRefresh={() => {
+            appointments.refetch();
+            if (canSeeMoney) dashboard.refetch();
+          }}
+        />
+      }
+    >
+      <Hero style={{ paddingBottom: canSeeMoney ? space.xxxl + space.xxxl : space.xxxl }}>
+        <Row style={{ justifyContent: 'space-between' }}>
+          <View style={{ flex: 1 }}>
+            <Txt variant="caption" color="rgba(199,210,254,0.85)">
+              {formatDate(today)}
+            </Txt>
+            <Txt variant="title" color="#FFFFFF" numberOfLines={1}>
+              {staff?.tenantName ?? 'Bugün'}
+            </Txt>
           </View>
-        ) : null}
+          <PressScale onPress={() => router.push('/salon-account')} accessibilityLabel="Hesap">
+            <Avatar name={user?.email ?? staff?.tenantName ?? 'O'} size={46} />
+          </PressScale>
+        </Row>
+        <Txt color="rgba(224,231,255,0.85)" style={{ marginTop: space.md }}>
+          {appointments.data
+            ? active.length > 0
+              ? `Bugün ${active.length} randevun var${next ? `, sıradaki ${next.startTime}` : ''}.`
+              : 'Bugün için randevu yok.'
+            : ' '}
+        </Txt>
+      </Hero>
 
-        <SectionTitle>Bugünkü randevular</SectionTitle>
+      <View style={{ paddingHorizontal: space.xl, gap: space.lg }}>
+        {canSeeMoney ? (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.md, marginTop: -(space.xxxl + space.xl) }}>
+            <KpiCard label="Günlük ciro" value={dashboard.data ? formatMoney(dashboard.data.todayRevenue) : '—'} icon="wallet" tone="success" />
+            <KpiCard label="Randevu" value={dashboard.data ? String(dashboard.data.todayAppointments) : '—'} icon="calendar" tone="primary" />
+            <KpiCard label="Onay bekleyen" value={dashboard.data ? String(dashboard.data.pendingAppointments) : '—'} icon="hourglass" tone="warning" />
+            <KpiCard label="Müşteri" value={dashboard.data ? String(dashboard.data.totalCustomers) : '—'} icon="people" tone="violet" />
+          </View>
+        ) : (
+          <View style={{ height: space.sm }} />
+        )}
+
+        <SectionHeader title="Bugünün akışı" action="Takvim" onAction={() => router.push('/calendar')} />
         {appointments.isLoading ? <Loading /> : null}
         <ErrorBox message={appointments.error instanceof Error ? appointments.error.message : null} />
-        {appointments.data && list.length === 0 ? <Empty title="Bugün randevu yok" /> : null}
+        {appointments.data && list.length === 0 ? (
+          <Empty icon="cafe-outline" title="Bugün randevu yok" hint="Online randevu linkini paylaşarak boş saatlerini doldurabilirsin." />
+        ) : null}
         {list.map((a) => (
-          <AppointmentCard key={a.id} appointment={a} />
+          <AppointmentCard key={a.id} appointment={a} highlight={a.id === next?.id} />
         ))}
-      </ScrollView>
-    </SafeAreaView>
+      </View>
+    </ScrollView>
   );
 }

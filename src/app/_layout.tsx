@@ -1,3 +1,11 @@
+import {
+  PlusJakartaSans_400Regular,
+  PlusJakartaSans_500Medium,
+  PlusJakartaSans_600SemiBold,
+  PlusJakartaSans_700Bold,
+  PlusJakartaSans_800ExtraBold,
+  useFonts,
+} from '@expo-google-fonts/plus-jakarta-sans';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -5,6 +13,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SessionProvider, useSession } from '../session/SessionProvider';
+import { useTheme } from '../ui/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -14,15 +23,24 @@ SplashScreen.preventAutoHideAsync().catch(() => undefined);
  */
 function RootNavigator() {
   const { ready, user, mode } = useSession();
+  const t = useTheme();
+  const [fontsLoaded, fontError] = useFonts({
+    PlusJakartaSans_400Regular,
+    PlusJakartaSans_500Medium,
+    PlusJakartaSans_600SemiBold,
+    PlusJakartaSans_700Bold,
+    PlusJakartaSans_800ExtraBold,
+  });
+  const loaded = ready && (fontsLoaded || !!fontError);
 
   useEffect(() => {
-    if (ready) SplashScreen.hideAsync().catch(() => undefined);
-  }, [ready]);
+    if (loaded) SplashScreen.hideAsync().catch(() => undefined);
+  }, [loaded]);
 
-  if (!ready) return null;
+  if (!loaded) return null;
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: t.background } }}>
       <Stack.Screen name="index" />
       <Stack.Protected guard={!user}>
         <Stack.Screen name="(auth)" />

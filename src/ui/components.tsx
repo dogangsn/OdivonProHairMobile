@@ -1,27 +1,106 @@
-import type { ReactNode } from 'react';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import * as Haptics from 'expo-haptics';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
+import React, { useRef, useState, type ComponentProps, type ReactNode } from 'react';
 import {
   ActivityIndicator,
+  Animated,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
+  type StyleProp,
   type TextInputProps,
+  type TextStyle,
   type ViewStyle,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { AppointmentStatus } from '../api/types';
 import { STATUS_LABELS } from '../api/types';
-import { radius, space, useTheme } from './theme';
+import { avatarColors, font, gradients, radius, shadow, space, useTheme, type Theme } from './theme';
 
-export function Screen({ children, scroll = true, padded = true }: { children: ReactNode; scroll?: boolean; padded?: boolean }) {
+export type IconName = ComponentProps<typeof Ionicons>['name'];
+
+function tap() {
+  if (Platform.OS !== 'web') Haptics.selectionAsync().catch(() => undefined);
+}
+
+/* ------------------------------------------------------------------ Text */
+
+type TxtVariant = 'display' | 'title' | 'h2' | 'h3' | 'body' | 'bodyStrong' | 'caption' | 'label' | 'kpi';
+
+const TXT: Record<TxtVariant, TextStyle> = {
+  display: { fontFamily: font.extrabold, fontSize: 32, lineHeight: 38, letterSpacing: -0.4 },
+  title: { fontFamily: font.extrabold, fontSize: 26, lineHeight: 32, letterSpacing: -0.3 },
+  h2: { fontFamily: font.bold, fontSize: 19, lineHeight: 25, letterSpacing: -0.3 },
+  h3: { fontFamily: font.bold, fontSize: 16, lineHeight: 22, letterSpacing: -0.2 },
+  body: { fontFamily: font.medium, fontSize: 15, lineHeight: 22 },
+  bodyStrong: { fontFamily: font.semibold, fontSize: 15, lineHeight: 22 },
+  caption: { fontFamily: font.medium, fontSize: 13, lineHeight: 18 },
+  label: { fontFamily: font.bold, fontSize: 11, lineHeight: 14, letterSpacing: 1 },
+  kpi: { fontFamily: font.extrabold, fontSize: 30, lineHeight: 36, letterSpacing: -0.5 },
+};
+
+export function Txt({
+  children,
+  variant = 'body',
+  color,
+  muted,
+  center,
+  style,
+  numberOfLines,
+}: {
+  children: ReactNode;
+  variant?: TxtVariant;
+  color?: string;
+  muted?: boolean;
+  center?: boolean;
+  style?: StyleProp<TextStyle>;
+  numberOfLines?: number;
+}) {
   const t = useTheme();
-  const inner = <View style={[padded && styles.padded, { gap: space.lg }]}>{children}</View>;
   return (
-    <SafeAreaView edges={['top', 'left', 'right']} style={{ flex: 1, backgroundColor: t.background }}>
+    <Text
+      numberOfLines={numberOfLines}
+      style={[TXT[variant], { color: color ?? (muted ? t.textMuted : t.text) }, center && { textAlign: 'center' }, style]}
+    >
+      {variant === 'label' && typeof children === 'string' ? children.toLocaleUpperCase('tr-TR') : children}
+    </Text>
+  );
+}
+
+/* --------------------------------------------------------------- Layout */
+
+export function Screen({
+  children,
+  scroll = true,
+  edges = ['top', 'left', 'right'],
+  contentStyle,
+  bottomInset = 0,
+}: {
+  children: ReactNode;
+  scroll?: boolean;
+  edges?: ('top' | 'bottom' | 'left' | 'right')[];
+  contentStyle?: StyleProp<ViewStyle>;
+  /** Extra bottom padding, e.g. for the floating tab bar or a sticky footer. */
+  bottomInset?: number;
+}) {
+  const t = useTheme();
+  const inner = (
+    <View style={[{ paddingHorizontal: space.xl, paddingTop: space.lg, gap: space.lg }, contentStyle]}>{children}</View>
+  );
+  return (
+    <SafeAreaView edges={edges} style={{ flex: 1, backgroundColor: t.background }}>
       {scroll ? (
-        <ScrollView contentContainerStyle={{ paddingBottom: space.xxl }} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: space.xxxl + bottomInset }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           {inner}
         </ScrollView>
       ) : (
@@ -31,184 +110,720 @@ export function Screen({ children, scroll = true, padded = true }: { children: R
   );
 }
 
-export function Title({ children, subtitle }: { children: ReactNode; subtitle?: ReactNode }) {
+/** Space the floating tab bar takes at the bottom of tab screens. */
+export const TAB_BAR_SPACE = 96;
+
+export function Row({ children, style, gap = space.sm }: { children: ReactNode; style?: StyleProp<ViewStyle>; gap?: number }) {
+  return <View style={[{ flexDirection: 'row', alignItems: 'center', gap }, style]}>{children}</View>;
+}
+
+export function Spacer() {
+  return <View style={{ flex: 1 }} />;
+}
+
+/* -------------------------------------------------------------- Brand */
+
+export function BrandMark({ size = 40, light }: { size?: number; light?: boolean }) {
   const t = useTheme();
   return (
-    <View style={{ gap: space.xs }}>
-      <Text style={{ fontSize: 26, fontWeight: '700', color: t.text }}>{children}</Text>
-      {subtitle ? <Text style={{ fontSize: 15, color: t.textMuted, lineHeight: 21 }}>{subtitle}</Text> : null}
+    <Row gap={space.md}>
+      <LinearGradient
+        colors={gradients.brand}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{ width: size, height: size, borderRadius: size * 0.32, alignItems: 'center', justifyContent: 'center' }}
+      >
+        <View
+          style={{
+            width: size * 0.5,
+            height: size * 0.5,
+            borderRadius: size,
+            borderWidth: size * 0.11,
+            borderColor: '#FFFFFF',
+            transform: [{ rotate: '-20deg' }, { scaleX: 0.85 }],
+          }}
+        />
+      </LinearGradient>
+      <View>
+        <Txt variant="h2" color={light ? '#FFFFFF' : t.text} style={{ fontSize: size * 0.48, lineHeight: size * 0.58 }}>
+          Odivon
+        </Txt>
+        <Txt variant="label" color={light ? 'rgba(199,210,254,0.85)' : t.textMuted} style={{ fontSize: 9, letterSpacing: 2 }}>
+          Kuaför · Güzellik
+        </Txt>
+      </View>
+    </Row>
+  );
+}
+
+/** Deep-navy hero with glow orbs, the signature surface of the Odivon login. */
+export function Hero({
+  children,
+  style,
+  rounded = true,
+  safeTop = true,
+}: {
+  children: ReactNode;
+  style?: StyleProp<ViewStyle>;
+  rounded?: boolean;
+  safeTop?: boolean;
+}) {
+  const insets = useSafeAreaInsets();
+  return (
+    <LinearGradient
+      colors={gradients.hero}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={[
+        {
+          paddingTop: (safeTop ? insets.top : 0) + space.lg,
+          paddingHorizontal: space.xl,
+          paddingBottom: space.xxl,
+          overflow: 'hidden',
+        },
+        rounded && { borderBottomLeftRadius: radius.xl + 8, borderBottomRightRadius: radius.xl + 8 },
+        style,
+      ]}
+    >
+      <View pointerEvents="none" style={[styles.orb, { top: -90, right: -70, backgroundColor: '#8B5CF6', opacity: 0.55 }]} />
+      <View pointerEvents="none" style={[styles.orb, { bottom: -140, left: -100, backgroundColor: '#4F46E5', opacity: 0.45 }]} />
+      <View pointerEvents="none" style={[styles.orbSmall, { top: 30, left: '50%', backgroundColor: '#22D3EE', opacity: 0.22 }]} />
+      {/* Softens the orbs into glows (backdrop blur on web/iOS; a light veil on Android). */}
+      <BlurView pointerEvents="none" intensity={70} tint="dark" style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(11,16,38,0.15)' }]} />
+      {children}
+    </LinearGradient>
+  );
+}
+
+/* ---------------------------------------------------------------- Cards */
+
+export function Card({
+  children,
+  onPress,
+  style,
+  padded = true,
+  elevated = true,
+}: {
+  children: ReactNode;
+  onPress?: () => void;
+  style?: StyleProp<ViewStyle>;
+  padded?: boolean;
+  elevated?: boolean;
+}) {
+  const t = useTheme();
+  const base: ViewStyle = {
+    backgroundColor: t.surface,
+    borderRadius: radius.lg + 2,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: t.border,
+    padding: padded ? space.lg + 2 : 0,
+    gap: space.sm,
+    ...(elevated ? shadow(t, 1) : null),
+  };
+  if (!onPress) return <View style={[base, style]}>{children}</View>;
+  return <PressScale onPress={onPress} style={[base, style]}>{children}</PressScale>;
+}
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+/** Pressable that shrinks slightly while pressed (layout styles apply to the pressable itself). */
+export function PressScale({
+  children,
+  onPress,
+  style,
+  disabled,
+  accessibilityLabel,
+  haptic = true,
+}: {
+  children: ReactNode;
+  onPress?: () => void;
+  style?: StyleProp<ViewStyle>;
+  disabled?: boolean;
+  accessibilityLabel?: string;
+  haptic?: boolean;
+}) {
+  const [scale] = useState(() => new Animated.Value(1));
+  const to = (v: number) => Animated.spring(scale, { toValue: v, useNativeDriver: Platform.OS !== 'web', speed: 40, bounciness: 6 }).start();
+  return (
+    <AnimatedPressable
+      onPress={() => {
+        if (haptic) tap();
+        onPress?.();
+      }}
+      onPressIn={() => to(0.97)}
+      onPressOut={() => to(1)}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      style={[style, { transform: [{ scale }] }]}
+    >
+      {children}
+    </AnimatedPressable>
+  );
+}
+
+export function IconBadge({
+  icon,
+  tone = 'primary',
+  size = 42,
+}: {
+  icon: IconName;
+  tone?: 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'violet';
+  size?: number;
+}) {
+  const t = useTheme();
+  const map = {
+    primary: [t.primarySoft, t.primary],
+    success: [t.successSoft, t.success],
+    warning: [t.warningSoft, t.warning],
+    danger: [t.dangerSoft, t.danger],
+    info: [t.infoSoft, t.info],
+    violet: [t.violetSoft, t.violet],
+  } as const;
+  const [bg, fg] = map[tone];
+  return (
+    <View style={{ width: size, height: size, borderRadius: size * 0.32, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
+      <Ionicons name={icon} size={size * 0.5} color={fg} />
     </View>
   );
 }
 
-export function SectionTitle({ children }: { children: ReactNode }) {
-  const t = useTheme();
-  return <Text style={{ fontSize: 17, fontWeight: '600', color: t.text }}>{children}</Text>;
-}
-
-export function Body({ children, muted, style }: { children: ReactNode; muted?: boolean; style?: object }) {
-  const t = useTheme();
-  return <Text style={[{ fontSize: 15, lineHeight: 21, color: muted ? t.textMuted : t.text }, style]}>{children}</Text>;
-}
-
-export function Card({ children, onPress, style }: { children: ReactNode; onPress?: () => void; style?: ViewStyle }) {
-  const t = useTheme();
-  const base: ViewStyle = {
-    backgroundColor: t.surface,
-    borderColor: t.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radius.lg,
-    padding: space.lg,
-    gap: space.sm,
-  };
-  if (!onPress) return <View style={[base, style]}>{children}</View>;
+export function KpiCard({
+  label,
+  value,
+  icon,
+  tone,
+  hint,
+}: {
+  label: string;
+  value: string;
+  icon: IconName;
+  tone: 'primary' | 'success' | 'warning' | 'info' | 'violet' | 'danger';
+  hint?: string;
+}) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [base, style, pressed && { opacity: 0.7 }]} accessibilityRole="button">
-      {children}
-    </Pressable>
+    <Card style={{ flexBasis: '46%', flexGrow: 1, gap: space.md }}>
+      <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <Txt variant="label" muted style={{ flex: 1, marginTop: 4 }}>
+          {label}
+        </Txt>
+        <IconBadge icon={icon} tone={tone} size={36} />
+      </Row>
+      <Txt variant="kpi" numberOfLines={1}>
+        {value}
+      </Txt>
+      {hint ? (
+        <Txt variant="caption" muted>
+          {hint}
+        </Txt>
+      ) : null}
+    </Card>
   );
 }
 
-type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
+export function Avatar({ name, size = 44 }: { name: string; size?: number }) {
+  const initials = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toLocaleUpperCase('tr-TR'))
+    .join('');
+  return (
+    <LinearGradient
+      colors={avatarColors(name)}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={{ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center' }}
+    >
+      <Text style={{ color: '#FFFFFF', fontFamily: font.bold, fontSize: size * 0.36 }}>{initials || '?'}</Text>
+    </LinearGradient>
+  );
+}
+
+/* -------------------------------------------------------------- Buttons */
+
+export function GradientButton({
+  title,
+  onPress,
+  loading,
+  disabled,
+  icon = 'arrow-forward',
+  style,
+}: {
+  title: string;
+  onPress: () => void;
+  loading?: boolean;
+  disabled?: boolean;
+  icon?: IconName | null;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const off = disabled || loading;
+  return (
+    <PressScale onPress={onPress} disabled={off} accessibilityLabel={title} style={[{ opacity: off ? 0.6 : 1 }, style]}>
+      <LinearGradient colors={gradients.brand} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.gradientButton}>
+        {loading ? (
+          <ActivityIndicator color="#FFFFFF" />
+        ) : (
+          <Row gap={space.sm}>
+            <Text style={styles.gradientButtonText}>{title}</Text>
+            {icon ? <Ionicons name={icon} size={18} color="#FFFFFF" /> : null}
+          </Row>
+        )}
+      </LinearGradient>
+    </PressScale>
+  );
+}
+
+type ButtonVariant = 'secondary' | 'ghost' | 'danger' | 'glass';
 
 export function Button({
   title,
   onPress,
-  variant = 'primary',
+  variant = 'secondary',
+  icon,
   loading,
   disabled,
+  compact,
 }: {
   title: string;
   onPress: () => void;
   variant?: ButtonVariant;
+  icon?: IconName;
   loading?: boolean;
   disabled?: boolean;
+  compact?: boolean;
 }) {
   const t = useTheme();
-  const colors: Record<ButtonVariant, { bg: string; fg: string; border: string }> = {
-    primary: { bg: t.primary, fg: t.onPrimary, border: t.primary },
-    secondary: { bg: t.surface, fg: t.text, border: t.border },
+  const c = {
+    secondary: { bg: t.surface, fg: t.text, border: t.borderStrong },
     ghost: { bg: 'transparent', fg: t.primary, border: 'transparent' },
-    danger: { bg: t.dangerSoft, fg: t.danger, border: t.dangerSoft },
-  };
-  const c = colors[variant];
+    danger: { bg: t.dangerSoft, fg: t.danger, border: 'transparent' },
+    glass: { bg: 'rgba(255,255,255,0.12)', fg: '#FFFFFF', border: 'rgba(255,255,255,0.22)' },
+  }[variant];
   const off = disabled || loading;
   return (
-    <Pressable
-      onPress={onPress}
-      disabled={off}
-      accessibilityRole="button"
-      accessibilityState={{ disabled: off, busy: loading }}
-      style={({ pressed }) => [
-        styles.button,
-        { backgroundColor: c.bg, borderColor: c.border, opacity: off ? 0.55 : pressed ? 0.8 : 1 },
-      ]}
-    >
-      {loading ? <ActivityIndicator color={c.fg} /> : <Text style={{ color: c.fg, fontSize: 16, fontWeight: '600', textAlign: 'center' }}>{title}</Text>}
+    <PressScale onPress={onPress} disabled={off} accessibilityLabel={title}>
+      <View
+        style={[
+          styles.button,
+          compact && { minHeight: 42, paddingHorizontal: space.md },
+          { backgroundColor: c.bg, borderColor: c.border, opacity: off ? 0.55 : 1 },
+        ]}
+      >
+        {loading ? (
+          <ActivityIndicator color={c.fg} />
+        ) : (
+          <Row gap={space.sm}>
+            {icon ? <Ionicons name={icon} size={18} color={c.fg} /> : null}
+            <Text style={{ color: c.fg, fontFamily: font.bold, fontSize: compact ? 14 : 15, textAlign: 'center' }}>{title}</Text>
+          </Row>
+        )}
+      </View>
+    </PressScale>
+  );
+}
+
+/** Square-ish quick action tile (icon + label). */
+export function ActionTile({ icon, label, onPress, tone = 'primary' }: { icon: IconName; label: string; onPress: () => void; tone?: 'primary' | 'violet' | 'success' | 'info' | 'warning' | 'danger' }) {
+  return (
+    <Card onPress={onPress} style={{ flex: 1, alignItems: 'flex-start', gap: space.md }}>
+      <IconBadge icon={icon} tone={tone} />
+      <Txt variant="bodyStrong">{label}</Txt>
+    </Card>
+  );
+}
+
+/* --------------------------------------------------------------- Inputs */
+
+export function Field({
+  label,
+  error,
+  icon,
+  secure,
+  trailing,
+  ...props
+}: TextInputProps & { label?: string; error?: string | null; icon?: IconName; secure?: boolean; trailing?: ReactNode }) {
+  const t = useTheme();
+  const [focused, setFocused] = useState(false);
+  const [hidden, setHidden] = useState(true);
+  return (
+    <View style={{ gap: space.sm }}>
+      {label ? (
+        <Row style={{ justifyContent: 'space-between' }}>
+          <Txt variant="caption" style={{ fontFamily: font.bold, color: t.text }}>
+            {label}
+          </Txt>
+          {trailing}
+        </Row>
+      ) : null}
+      <View
+        style={[
+          styles.inputWrap,
+          {
+            backgroundColor: t.surface,
+            borderColor: error ? t.danger : focused ? t.primary : t.borderStrong,
+          },
+          focused && { shadowColor: t.primary, shadowOpacity: 0.25, shadowRadius: 8, shadowOffset: { width: 0, height: 0 } },
+        ]}
+      >
+        {icon ? <Ionicons name={icon} size={19} color={focused ? t.primary : t.textSubtle} /> : null}
+        <TextInput
+          placeholderTextColor={t.textSubtle}
+          {...props}
+          secureTextEntry={secure ? hidden : props.secureTextEntry}
+          onFocus={(e) => {
+            setFocused(true);
+            props.onFocus?.(e);
+          }}
+          onBlur={(e) => {
+            setFocused(false);
+            props.onBlur?.(e);
+          }}
+          style={[styles.input, { color: t.text }, Platform.OS === 'web' && ({ outlineStyle: 'none' } as object), props.style]}
+        />
+        {secure ? (
+          <Pressable onPress={() => setHidden((h) => !h)} hitSlop={10} accessibilityLabel={hidden ? 'Şifreyi göster' : 'Şifreyi gizle'}>
+            <Ionicons name={hidden ? 'eye-outline' : 'eye-off-outline'} size={19} color={t.textSubtle} />
+          </Pressable>
+        ) : null}
+      </View>
+      {error ? (
+        <Txt variant="caption" color={t.danger}>
+          {error}
+        </Txt>
+      ) : null}
+    </View>
+  );
+}
+
+/** Six separate boxes over one hidden input (SMS autofill still works). */
+export function OtpInput({ value, onChange, onComplete }: { value: string; onChange: (v: string) => void; onComplete?: (v: string) => void }) {
+  const t = useTheme();
+  const ref = useRef<React.ComponentRef<typeof TextInput>>(null);
+  const [focused, setFocused] = useState(true);
+  return (
+    <Pressable onPress={() => ref.current?.focus()} accessibilityLabel="Doğrulama kodu">
+      <Row gap={space.sm} style={{ justifyContent: 'space-between' }}>
+        {Array.from({ length: 6 }, (_, i) => {
+          const active = focused && (i === value.length || (i === 5 && value.length === 6));
+          return (
+            <View
+              key={i}
+              style={[
+                styles.otpBox,
+                {
+                  backgroundColor: t.surface,
+                  borderColor: active ? t.primary : value[i] ? t.borderStrong : t.border,
+                  borderWidth: active ? 2 : 1,
+                },
+                shadow(t, 1),
+              ]}
+            >
+              <Text style={{ fontFamily: font.extrabold, fontSize: 24, color: t.text }}>{value[i] ?? ''}</Text>
+            </View>
+          );
+        })}
+      </Row>
+      <TextInput
+        ref={ref}
+        value={value}
+        onChangeText={(v) => {
+          const digits = v.replace(/\D/g, '').slice(0, 6);
+          onChange(digits);
+          if (digits.length === 6) onComplete?.(digits);
+        }}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        keyboardType="number-pad"
+        autoComplete="sms-otp"
+        textContentType="oneTimeCode"
+        maxLength={6}
+        autoFocus
+        caretHidden
+        style={styles.hiddenInput}
+      />
     </Pressable>
   );
 }
 
-export function Field({ label, error, ...props }: TextInputProps & { label: string; error?: string | null }) {
-  const t = useTheme();
-  return (
-    <View style={{ gap: space.xs }}>
-      <Text style={{ fontSize: 14, fontWeight: '500', color: t.text }}>{label}</Text>
-      <TextInput
-        placeholderTextColor={t.textMuted}
-        {...props}
-        style={[
-          styles.input,
-          { backgroundColor: t.surface, color: t.text, borderColor: error ? t.danger : t.border },
-          props.style,
-        ]}
-      />
-      {error ? <Text style={{ color: t.danger, fontSize: 13 }}>{error}</Text> : null}
-    </View>
-  );
+/** Search box for lists. */
+export function SearchBar(props: TextInputProps) {
+  return <Field icon="search" placeholder="Ara" autoCorrect={false} returnKeyType="search" {...props} />;
 }
+
+/* ------------------------------------------------------------ Feedback */
 
 export function ErrorBox({ message }: { message?: string | null }) {
   const t = useTheme();
   if (!message) return null;
   return (
-    <View style={{ backgroundColor: t.dangerSoft, borderRadius: radius.md, padding: space.md }} accessibilityRole="alert">
-      <Text style={{ color: t.danger, fontSize: 14 }}>{message}</Text>
-    </View>
+    <Row
+      gap={space.sm}
+      style={{ backgroundColor: t.dangerSoft, borderRadius: radius.md, padding: space.md, alignItems: 'flex-start' }}
+    >
+      <Ionicons name="alert-circle" size={18} color={t.danger} style={{ marginTop: 1 }} />
+      <Txt variant="caption" color={t.danger} style={{ flex: 1, fontFamily: font.semibold }}>
+        {message}
+      </Txt>
+    </Row>
+  );
+}
+
+export function InfoBox({ message, icon = 'checkmark-circle' }: { message?: string | null; icon?: IconName }) {
+  const t = useTheme();
+  if (!message) return null;
+  return (
+    <Row gap={space.sm} style={{ backgroundColor: t.successSoft, borderRadius: radius.md, padding: space.md }}>
+      <Ionicons name={icon} size={18} color={t.success} />
+      <Txt variant="caption" color={t.success} style={{ flex: 1, fontFamily: font.semibold }}>
+        {message}
+      </Txt>
+    </Row>
   );
 }
 
 export function Loading({ label }: { label?: string }) {
   const t = useTheme();
   return (
-    <View style={{ padding: space.xl, alignItems: 'center', gap: space.sm }}>
-      <ActivityIndicator color={t.primary} />
-      {label ? <Text style={{ color: t.textMuted }}>{label}</Text> : null}
+    <View style={{ padding: space.xxl, alignItems: 'center', gap: space.md }}>
+      <ActivityIndicator color={t.primary} size="large" />
+      {label ? <Txt variant="caption" muted>{label}</Txt> : null}
     </View>
   );
 }
 
-export function Empty({ title, hint }: { title: string; hint?: string }) {
+export function Empty({ title, hint, icon = 'sparkles-outline' }: { title: string; hint?: string; icon?: IconName }) {
   const t = useTheme();
   return (
-    <View style={{ padding: space.xl, alignItems: 'center', gap: space.xs }}>
-      <Text style={{ color: t.text, fontSize: 16, fontWeight: '600', textAlign: 'center' }}>{title}</Text>
-      {hint ? <Text style={{ color: t.textMuted, textAlign: 'center' }}>{hint}</Text> : null}
+    <View style={{ paddingVertical: space.xxl, alignItems: 'center', gap: space.md }}>
+      <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: t.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
+        <Ionicons name={icon} size={30} color={t.primary} />
+      </View>
+      <Txt variant="h3" center>
+        {title}
+      </Txt>
+      {hint ? (
+        <Txt variant="caption" muted center style={{ maxWidth: 280 }}>
+          {hint}
+        </Txt>
+      ) : null}
     </View>
   );
 }
 
-export function Chip({ label, selected, onPress }: { label: string; selected?: boolean; onPress: () => void }) {
+/* -------------------------------------------------------- Chips / pills */
+
+export function Chip({ label, selected, onPress, icon }: { label: string; selected?: boolean; onPress: () => void; icon?: IconName }) {
   const t = useTheme();
+  const content = (
+    <Row gap={6}>
+      {icon ? <Ionicons name={icon} size={15} color={selected ? '#FFFFFF' : t.textMuted} /> : null}
+      <Text style={{ color: selected ? '#FFFFFF' : t.text, fontFamily: selected ? font.bold : font.semibold, fontSize: 14 }}>{label}</Text>
+    </Row>
+  );
   return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityState={{ selected }}
-      style={{
-        paddingHorizontal: space.md,
-        paddingVertical: space.sm,
-        borderRadius: radius.pill,
-        borderWidth: 1,
-        borderColor: selected ? t.primary : t.border,
-        backgroundColor: selected ? t.primarySoft : t.surface,
-      }}
-    >
-      <Text style={{ color: selected ? t.primary : t.text, fontWeight: selected ? '600' : '400' }}>{label}</Text>
-    </Pressable>
+    <PressScale onPress={onPress} accessibilityLabel={label}>
+      {selected ? (
+        <LinearGradient colors={gradients.brand} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.chip}>
+          {content}
+        </LinearGradient>
+      ) : (
+        <View style={[styles.chip, { backgroundColor: t.surface, borderColor: t.border, borderWidth: 1 }]}>{content}</View>
+      )}
+    </PressScale>
   );
 }
 
-export function StatusBadge({ status }: { status: AppointmentStatus }) {
+/** Two-option switch, like the web login's "Giriş yap / Kayıt ol" tabs. */
+export function Segmented<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: { value: T; label: string }[];
+  value: T;
+  onChange: (v: T) => void;
+}) {
   const t = useTheme();
-  const tone =
-    status === 'completed' || status === 'confirmed'
-      ? { bg: t.successSoft, fg: t.success }
-      : status === 'cancelled' || status === 'noShow'
-        ? { bg: t.dangerSoft, fg: t.danger }
-        : status === 'pending'
-          ? { bg: t.warningSoft, fg: t.warning }
-          : { bg: t.primarySoft, fg: t.primary };
   return (
-    <View style={{ alignSelf: 'flex-start', backgroundColor: tone.bg, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 3 }}>
-      <Text style={{ color: tone.fg, fontSize: 12, fontWeight: '600' }}>{STATUS_LABELS[status] ?? status}</Text>
-    </View>
+    <Row gap={4} style={{ backgroundColor: t.surfaceMuted, borderRadius: radius.md + 2, padding: 4 }}>
+      {options.map((o) => {
+        const active = o.value === value;
+        return (
+          <Pressable key={o.value} onPress={() => { tap(); onChange(o.value); }} style={{ flex: 1 }} accessibilityRole="tab" accessibilityState={{ selected: active }}>
+            {active ? (
+              <LinearGradient colors={gradients.brand} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.segment}>
+                <Text style={{ color: '#FFFFFF', fontFamily: font.bold, fontSize: 14 }}>{o.label}</Text>
+              </LinearGradient>
+            ) : (
+              <View style={styles.segment}>
+                <Text style={{ color: t.textMuted, fontFamily: font.semibold, fontSize: 14 }}>{o.label}</Text>
+              </View>
+            )}
+          </Pressable>
+        );
+      })}
+    </Row>
   );
 }
 
-export function Row({ children, style }: { children: ReactNode; style?: ViewStyle }) {
-  return <View style={[{ flexDirection: 'row', alignItems: 'center', gap: space.sm }, style]}>{children}</View>;
+function statusTone(t: Theme, status: AppointmentStatus) {
+  switch (status) {
+    case 'completed':
+      return { bg: t.successSoft, fg: t.success };
+    case 'confirmed':
+      return { bg: t.infoSoft, fg: t.info };
+    case 'pending':
+      return { bg: t.warningSoft, fg: t.warning };
+    case 'cancelled':
+    case 'noShow':
+      return { bg: t.dangerSoft, fg: t.danger };
+    default:
+      return { bg: t.violetSoft, fg: t.violet };
+  }
+}
+
+export function statusColor(t: Theme, status: AppointmentStatus): string {
+  return statusTone(t, status).fg;
+}
+
+export function StatusPill({ status }: { status: AppointmentStatus }) {
+  const t = useTheme();
+  const tone = statusTone(t, status);
+  return (
+    <Row gap={6} style={{ alignSelf: 'flex-start', backgroundColor: tone.bg, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 4 }}>
+      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: tone.fg }} />
+      <Text style={{ color: tone.fg, fontSize: 12, fontFamily: font.bold }}>{STATUS_LABELS[status] ?? status}</Text>
+    </Row>
+  );
+}
+
+export function SectionHeader({ title, action, onAction }: { title: string; action?: string; onAction?: () => void }) {
+  const t = useTheme();
+  return (
+    <Row style={{ justifyContent: 'space-between', marginTop: space.sm }}>
+      <Txt variant="h2">{title}</Txt>
+      {action && onAction ? (
+        <Pressable onPress={onAction} hitSlop={8}>
+          <Text style={{ color: t.primary, fontFamily: font.bold, fontSize: 14 }}>{action}</Text>
+        </Pressable>
+      ) : null}
+    </Row>
+  );
+}
+
+/** Settings-style row with an icon badge and a chevron. */
+export function ListRow({
+  icon,
+  title,
+  subtitle,
+  onPress,
+  tone = 'primary',
+  danger,
+}: {
+  icon: IconName;
+  title: string;
+  subtitle?: string;
+  onPress: () => void;
+  tone?: 'primary' | 'violet' | 'success' | 'info' | 'warning' | 'danger';
+  danger?: boolean;
+}) {
+  const t = useTheme();
+  return (
+    <PressScale onPress={onPress} accessibilityLabel={title}>
+      <Row gap={space.md} style={{ paddingVertical: space.md }}>
+        <IconBadge icon={icon} tone={danger ? 'danger' : tone} size={38} />
+        <View style={{ flex: 1 }}>
+          <Txt variant="bodyStrong" color={danger ? t.danger : undefined}>
+            {title}
+          </Txt>
+          {subtitle ? <Txt variant="caption" muted>{subtitle}</Txt> : null}
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={t.textSubtle} />
+      </Row>
+    </PressScale>
+  );
+}
+
+/** Thin progress bar for multi-step flows. */
+export function Steps({ count, current }: { count: number; current: number }) {
+  const t = useTheme();
+  return (
+    <Row gap={6}>
+      {Array.from({ length: count }, (_, i) =>
+        i <= current ? (
+          <LinearGradient key={i} colors={gradients.brand} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.step} />
+        ) : (
+          <View key={i} style={[styles.step, { backgroundColor: t.surfaceMuted }]} />
+        ),
+      )}
+    </Row>
+  );
 }
 
 const styles = StyleSheet.create({
-  padded: { paddingHorizontal: space.lg, paddingTop: space.lg },
+  orb: { position: 'absolute', width: 260, height: 260, borderRadius: 130 },
+  orbSmall: { position: 'absolute', width: 120, height: 120, borderRadius: 60 },
+  gradientButton: {
+    minHeight: 54,
+    borderRadius: radius.md + 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: space.xl,
+    shadowColor: '#6366F1',
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 6,
+  },
+  gradientButtonText: { color: '#FFFFFF', fontFamily: font.bold, fontSize: 16 },
   button: {
-    minHeight: 50,
-    borderRadius: radius.md,
+    minHeight: 52,
+    borderRadius: radius.md + 2,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: space.lg,
   },
-  input: { minHeight: 50, borderWidth: 1, borderRadius: radius.md, paddingHorizontal: space.md, fontSize: 16 },
+  inputWrap: {
+    minHeight: 54,
+    borderWidth: 1,
+    borderRadius: radius.md + 2,
+    paddingHorizontal: space.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+  },
+  input: { flex: 1, fontSize: 16, fontFamily: font.medium, paddingVertical: space.md },
+  otpBox: { flex: 1, maxWidth: 56, aspectRatio: 0.86, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
+  hiddenInput: { position: 'absolute', opacity: 0, width: 1, height: 1 },
+  chip: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: radius.pill },
+  segment: { minHeight: 42, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
+  step: { flex: 1, height: 5, borderRadius: 3 },
 });
+
+/** In-screen top bar with a round back button (stack headers are hidden for a cleaner look). */
+export function TopBar({ title, onBack, right }: { title?: string; onBack?: () => void; right?: ReactNode }) {
+  const t = useTheme();
+  return (
+    <Row style={{ justifyContent: 'space-between', minHeight: 44 }}>
+      {onBack ? (
+        <PressScale onPress={onBack} accessibilityLabel="Geri">
+          <View style={[{ width: 42, height: 42, borderRadius: 14, backgroundColor: t.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: t.border }, shadow(t, 1)]}>
+            <Ionicons name="chevron-back" size={22} color={t.text} />
+          </View>
+        </PressScale>
+      ) : (
+        <View style={{ width: 42 }} />
+      )}
+      {title ? (
+        <Txt variant="h3" numberOfLines={1} style={{ flex: 1, textAlign: 'center', marginHorizontal: space.sm }}>
+          {title}
+        </Txt>
+      ) : (
+        <Spacer />
+      )}
+      {right ?? <View style={{ width: 42 }} />}
+    </Row>
+  );
+}

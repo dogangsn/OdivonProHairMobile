@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { slugFromLink } from '../../lib/dates';
-import { Body, Button, ErrorBox, Screen } from '../../ui/components';
+import { Empty, ErrorBox, GradientButton, Screen, TopBar } from '../../ui/components';
 import { space } from '../../ui/theme';
 
 /** Reads the salon's booking QR code (it encodes https://hair.odivon.com/r/{slug}). */
@@ -17,8 +17,9 @@ export default function ScanQr() {
   if (!permission.granted) {
     return (
       <Screen>
-        <Body>Salonun QR kodunu okutmak için kamera iznine ihtiyacımız var.</Body>
-        <Button title="Kameraya izin ver" onPress={requestPermission} />
+        <TopBar onBack={() => router.back()} />
+        <Empty icon="camera-outline" title="Kamera izni gerekiyor" hint="Salonun QR kodunu okutmak için kameraya erişmemize izin ver." />
+        <GradientButton title="Kameraya izin ver" onPress={requestPermission} />
       </Screen>
     );
   }
@@ -40,7 +41,15 @@ export default function ScanQr() {
           router.replace({ pathname: '/salon/[slug]', params: { slug } });
         }}
       />
-      <View style={{ position: 'absolute', left: space.lg, right: space.lg, bottom: space.xxl }}>
+      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <View style={{ width: 240, height: 240, borderRadius: 32, borderWidth: 3, borderColor: 'rgba(255,255,255,0.9)' }} />
+        </View>
+      </View>
+      <View style={{ position: 'absolute', left: space.xl, right: space.xl, top: space.xxxl + space.lg }}>
+        <TopBar onBack={() => router.back()} title="QR kodu çerçeveye getir" />
+      </View>
+      <View style={{ position: 'absolute', left: space.lg, right: space.lg, bottom: space.xxxl }}>
         <ErrorBox message={error} />
       </View>
     </View>

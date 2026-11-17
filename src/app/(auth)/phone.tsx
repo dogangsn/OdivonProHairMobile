@@ -2,7 +2,8 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { normalizePhone } from '../../lib/phone';
 import { useSession } from '../../session/SessionProvider';
-import { Body, Button, ErrorBox, Field, Screen, Title } from '../../ui/components';
+import { AuthShell } from '../../ui/AuthShell';
+import { ErrorBox, Field, GradientButton, Txt } from '../../ui/components';
 
 /** Customer sign-in, step 1: phone number → SMS code. */
 export default function PhoneSignIn() {
@@ -31,10 +32,10 @@ export default function PhoneSignIn() {
   }
 
   return (
-    <Screen>
-      <Title subtitle="Numarana 6 haneli bir doğrulama kodu göndereceğiz.">Telefon numaran</Title>
+    <AuthShell title="Hoş geldin 👋" subtitle="Telefon numarana 6 haneli bir giriş kodu gönderelim.">
       <Field
         label="Cep telefonu"
+        icon="call-outline"
         placeholder="05XX XXX XX XX"
         keyboardType="phone-pad"
         autoComplete="tel"
@@ -45,10 +46,10 @@ export default function PhoneSignIn() {
         autoFocus
       />
       <ErrorBox message={error} />
-      <Button title="Kod gönder" onPress={submit} loading={busy} />
-      <Body muted style={{ fontSize: 13 }}>
-        {'Devam ederek Kullanım Koşulları’nı ve KVKK Aydınlatma Metni’ni kabul etmiş olursun.'}
-      </Body>
-    </Screen>
+      <GradientButton title="Kod gönder" onPress={submit} loading={busy} />
+      <Txt variant="caption" muted center>
+        Devam ederek Kullanım Koşulları’nı ve KVKK Aydınlatma Metni’ni kabul etmiş olursun.
+      </Txt>
+    </AuthShell>
   );
 }

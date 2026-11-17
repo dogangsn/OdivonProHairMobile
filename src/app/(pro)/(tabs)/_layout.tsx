@@ -1,34 +1,20 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs } from 'expo-router';
-import { useTheme } from '../../../ui/theme';
+import { FloatingTabBar } from '../../../ui/TabBar';
+
+const ICONS = {
+  today: 'grid-outline',
+  calendar: 'calendar-outline',
+  customers: 'people-outline',
+  'salon-account': 'person-circle-outline',
+} as const;
 
 export default function ProTabs() {
-  const t = useTheme();
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: t.primary,
-        tabBarInactiveTintColor: t.textMuted,
-        tabBarStyle: { backgroundColor: t.surface, borderTopColor: t.border },
-      }}
-    >
-      <Tabs.Screen
-        name="today"
-        options={{ title: 'Bugün', tabBarIcon: ({ color, size }) => <Ionicons name="today-outline" color={color as string} size={size} /> }}
-      />
-      <Tabs.Screen
-        name="calendar"
-        options={{ title: 'Takvim', tabBarIcon: ({ color, size }) => <Ionicons name="calendar-outline" color={color as string} size={size} /> }}
-      />
-      <Tabs.Screen
-        name="customers"
-        options={{ title: 'Müşteriler', tabBarIcon: ({ color, size }) => <Ionicons name="people-outline" color={color as string} size={size} /> }}
-      />
-      <Tabs.Screen
-        name="salon-account"
-        options={{ title: 'Hesap', tabBarIcon: ({ color, size }) => <Ionicons name="person-circle-outline" color={color as string} size={size} /> }}
-      />
+    <Tabs screenOptions={{ headerShown: false }} tabBar={(props) => <FloatingTabBar {...props} icons={ICONS} />}>
+      <Tabs.Screen name="today" options={{ title: 'Bugün' }} />
+      <Tabs.Screen name="calendar" options={{ title: 'Takvim' }} />
+      <Tabs.Screen name="customers" options={{ title: 'Müşteriler' }} />
+      <Tabs.Screen name="salon-account" options={{ title: 'Hesap' }} />
     </Tabs>
   );
 }

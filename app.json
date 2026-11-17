@@ -54,7 +54,7 @@
         {
           "image": "./assets/splash-icon.png",
           "imageWidth": 160,
-          "backgroundColor": "#EEF2FF"
+          "backgroundColor": "#0B1026"
         }
       ],
       [
@@ -63,7 +63,8 @@
           "cameraPermission": "Salonun QR kodunu okutmak için kameraya erişim gerekiyor.",
           "recordAudioAndroid": false
         }
-      ]
+      ],
+      "expo-font"
     ]
   }
 }
