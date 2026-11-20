@@ -2,10 +2,11 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Haptics from 'expo-haptics';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useRef, useState, type ComponentProps, type ReactNode } from 'react';
+import { useFocusEffect } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
 import {
-  ActivityIndicator,
   Animated,
+  Easing,
   Platform,
   Pressable,
   ScrollView,
@@ -123,27 +124,91 @@ export function Spacer() {
 
 /* -------------------------------------------------------------- Brand */
 
-export function BrandMark({ size = 40, light }: { size?: number; light?: boolean }) {
-  const t = useTheme();
+/** The Odivon mark alone: brand-gradient tile with the tilted white ring. */
+export function LogoMark({ size = 40 }: { size?: number }) {
   return (
-    <Row gap={space.md}>
+    <LinearGradient
+      colors={gradients.brand}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={{ width: size, height: size, borderRadius: size * 0.32, alignItems: 'center', justifyContent: 'center' }}
+    >
+      <LogoRing size={size * 0.5} />
+    </LinearGradient>
+  );
+}
+
+/** The tilted ring from the Odivon mark; `size` is its outer diameter. */
+function LogoRing({ size, color = '#FFFFFF' }: { size: number; color?: string }) {
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size,
+        borderWidth: size * 0.22,
+        borderColor: color,
+        transform: [{ rotate: '-20deg' }, { scaleX: 0.85 }],
+      }}
+    />
+  );
+}
+
+/** A 0 → 1 value that repeats forever while the component is mounted. */
+function useLoop(duration: number) {
+  const [v] = useState(() => new Animated.Value(0));
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(v, { toValue: 1, duration, easing: Easing.inOut(Easing.ease), useNativeDriver: Platform.OS !== 'web' }),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [v, duration]);
+  return v;
+}
+
+/** Page loader: the Odivon mark breathing while its ring turns. */
+export function LogoLoader({ size = 56 }: { size?: number }) {
+  const t = useTheme();
+  const v = useLoop(1400);
+  const scale = v.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.92, 1.04, 0.92] });
+  const rotate = v.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+  return (
+    <Animated.View
+      accessibilityRole="progressbar"
+      accessibilityLabel="Yükleniyor"
+      style={[shadow(t, 2), { borderRadius: size * 0.32, transform: [{ scale }] }]}
+    >
       <LinearGradient
         colors={gradients.brand}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{ width: size, height: size, borderRadius: size * 0.32, alignItems: 'center', justifyContent: 'center' }}
       >
-        <View
-          style={{
-            width: size * 0.5,
-            height: size * 0.5,
-            borderRadius: size,
-            borderWidth: size * 0.11,
-            borderColor: '#FFFFFF',
-            transform: [{ rotate: '-20deg' }, { scaleX: 0.85 }],
-          }}
-        />
+        <Animated.View style={{ transform: [{ rotate }] }}>
+          <LogoRing size={size * 0.5} />
+        </Animated.View>
       </LinearGradient>
+    </Animated.View>
+  );
+}
+
+/** Small inline loader for buttons: the Odivon ring, spinning. */
+export function LogoSpinner({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  const v = useLoop(900);
+  const rotate = v.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+  return (
+    <Animated.View accessibilityRole="progressbar" accessibilityLabel="Yükleniyor" style={{ transform: [{ rotate }] }}>
+      <LogoRing size={size} color={color} />
+    </Animated.View>
+  );
+}
+
+export function BrandMark({ size = 40, light }: { size?: number; light?: boolean }) {
+  const t = useTheme();
+  return (
+    <Row gap={space.md}>
+      <LogoMark size={size} />
       <View>
         <Txt variant="h2" color={light ? '#FFFFFF' : t.text} style={{ fontSize: size * 0.48, lineHeight: size * 0.58 }}>
           Odivon
@@ -362,7 +427,7 @@ export function GradientButton({
     <PressScale onPress={onPress} disabled={off} accessibilityLabel={title} style={[{ opacity: off ? 0.6 : 1 }, style]}>
       <LinearGradient colors={gradients.brand} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.gradientButton}>
         {loading ? (
-          <ActivityIndicator color="#FFFFFF" />
+          <LogoSpinner />
         ) : (
           <Row gap={space.sm}>
             <Text style={styles.gradientButtonText}>{title}</Text>
@@ -411,7 +476,7 @@ export function Button({
         ]}
       >
         {loading ? (
-          <ActivityIndicator color={c.fg} />
+          <LogoSpinner color={c.fg} />
         ) : (
           <Row gap={space.sm}>
             {icon ? <Ionicons name={icon} size={18} color={c.fg} /> : null}
@@ -435,17 +500,34 @@ export function ActionTile({ icon, label, onPress, tone = 'primary' }: { icon: I
 
 /* --------------------------------------------------------------- Inputs */
 
+/**
+ * Focus an input once its screen has finished sliding in. A plain `autoFocus` fires mid-transition
+ * on Android, where the native stack then takes focus back: the keyboard pops up and drops again.
+ */
+function useFocusAfterTransition(ref: React.RefObject<React.ComponentRef<typeof TextInput> | null>, enabled: boolean) {
+  useFocusEffect(
+    useCallback(() => {
+      if (!enabled) return undefined;
+      const id = setTimeout(() => ref.current?.focus(), Platform.OS === 'android' ? 450 : 350);
+      return () => clearTimeout(id);
+    }, [ref, enabled]),
+  );
+}
+
 export function Field({
   label,
   error,
   icon,
   secure,
   trailing,
+  autoFocus,
   ...props
 }: TextInputProps & { label?: string; error?: string | null; icon?: IconName; secure?: boolean; trailing?: ReactNode }) {
   const t = useTheme();
+  const ref = useRef<React.ComponentRef<typeof TextInput>>(null);
   const [focused, setFocused] = useState(false);
   const [hidden, setHidden] = useState(true);
+  useFocusAfterTransition(ref, !!autoFocus);
   return (
     <View style={{ gap: space.sm }}>
       {label ? (
@@ -462,12 +544,17 @@ export function Field({
           {
             backgroundColor: t.surface,
             borderColor: error ? t.danger : focused ? t.primary : t.borderStrong,
+            // Same style keys on every render; only values change, so the native view is never rebuilt.
+            shadowColor: t.primary,
+            shadowOpacity: focused && Platform.OS === 'ios' ? 0.25 : 0,
+            shadowRadius: 8,
+            shadowOffset: { width: 0, height: 0 },
           },
-          focused && { shadowColor: t.primary, shadowOpacity: 0.25, shadowRadius: 8, shadowOffset: { width: 0, height: 0 } },
         ]}
       >
         {icon ? <Ionicons name={icon} size={19} color={focused ? t.primary : t.textSubtle} /> : null}
         <TextInput
+          ref={ref}
           placeholderTextColor={t.textSubtle}
           {...props}
           secureTextEntry={secure ? hidden : props.secureTextEntry}
@@ -500,7 +587,8 @@ export function Field({
 export function OtpInput({ value, onChange, onComplete }: { value: string; onChange: (v: string) => void; onComplete?: (v: string) => void }) {
   const t = useTheme();
   const ref = useRef<React.ComponentRef<typeof TextInput>>(null);
-  const [focused, setFocused] = useState(true);
+  const [focused, setFocused] = useState(false);
+  useFocusAfterTransition(ref, true);
   return (
     <Pressable onPress={() => ref.current?.focus()} accessibilityLabel="Doğrulama kodu">
       <Row gap={space.sm} style={{ justifyContent: 'space-between' }}>
@@ -538,8 +626,8 @@ export function OtpInput({ value, onChange, onComplete }: { value: string; onCha
         autoComplete="sms-otp"
         textContentType="oneTimeCode"
         maxLength={6}
-        autoFocus
         caretHidden
+        contextMenuHidden
         style={styles.hiddenInput}
       />
     </Pressable>
@@ -583,10 +671,9 @@ export function InfoBox({ message, icon = 'checkmark-circle' }: { message?: stri
 }
 
 export function Loading({ label }: { label?: string }) {
-  const t = useTheme();
   return (
     <View style={{ padding: space.xxl, alignItems: 'center', gap: space.md }}>
-      <ActivityIndicator color={t.primary} size="large" />
+      <LogoLoader />
       {label ? <Txt variant="caption" muted>{label}</Txt> : null}
     </View>
   );
@@ -796,7 +883,8 @@ const styles = StyleSheet.create({
   },
   input: { flex: 1, fontSize: 16, fontFamily: font.medium, paddingVertical: space.md },
   otpBox: { flex: 1, maxWidth: 56, aspectRatio: 0.86, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
-  hiddenInput: { position: 'absolute', opacity: 0, width: 1, height: 1 },
+  // Covers the boxes at near-zero opacity: Android drops the keyboard for 1x1 / fully transparent inputs.
+  hiddenInput: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.02, color: 'transparent', fontSize: 1 },
   chip: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: radius.pill },
   segment: { minHeight: 42, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
   step: { flex: 1, height: 5, borderRadius: 3 },
