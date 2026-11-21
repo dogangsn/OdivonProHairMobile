@@ -66,7 +66,7 @@ export default function Welcome() {
         <PreviewCard />
         <View style={{ gap: space.md }}>
           <Txt variant="display" color="#FFFFFF" style={{ fontSize: 36, lineHeight: 42 }}>
-            Güzelliğin{'\n'}
+            Berber ve kuaför{'\n'}
             <Text style={{ color: '#C4B5FD' }}>randevusu</Text> cebinde.
           </Txt>
           <Txt color="rgba(226,232,240,0.78)">Salonunu seç, saatini ayırt, hatırlatmayı bize bırak.</Txt>

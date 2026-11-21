@@ -214,7 +214,7 @@ export function BrandMark({ size = 40, light }: { size?: number; light?: boolean
           Odivon
         </Txt>
         <Txt variant="label" color={light ? 'rgba(199,210,254,0.85)' : t.textMuted} style={{ fontSize: 9, letterSpacing: 2 }}>
-          Kuaför · Güzellik
+          Berber · Kuaför
         </Txt>
       </View>
     </Row>
